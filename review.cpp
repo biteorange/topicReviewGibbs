@@ -147,13 +147,13 @@ class Gibbs {
 	double delta;
 	void updateParameter(double* param, int* count, int n) {
 		int Z = 0;
-		double alpha = 1;
+		double alpha = 0.5 / n;
 		for (int i = 0; i < n; i++) {
 			Z += count[i];
 		}
 		double temp;
 		for (int i = 0; i < n; i++) {
-			temp = double(count[i]) / Z;
+		  temp = (alpha + count[i]) / (n*alpha + Z);
 
 			if (std::abs(temp - param[i]) > delta) {
 				delta = std::abs(temp-param[i]);
