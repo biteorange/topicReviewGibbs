@@ -7,4 +7,7 @@ uit_*
 # compiled stuff
 *.out
 
+# emacs temporary
+*~
+
 
