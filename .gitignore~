@@ -1,0 +1,10 @@
+# partial results
+tw_*
+u_*
+i_*
+uit_*
+
+# compiled stuff
+*.out
+
+

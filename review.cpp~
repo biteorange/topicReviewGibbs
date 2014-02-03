@@ -1,0 +1,279 @@
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include <string>
+#include <iostream>
+#include <fstream>
+#include "sstream"
+#include "gzstream.h"
+
+class Gibbs {
+	int** examples;
+	double** wordPerTopicParam;
+	double*** topicPerItemUserParam;
+	double** itemParam;
+	double** userParam;
+
+	// model parameters
+	int nTopics;
+	int nWords;
+	int nUserType;
+	int nItemType;
+	int nUser;
+	int nItem;
+	int nVar = 6; // 6 variable
+	int nSamples;
+
+	// counts for computation
+	int** wordPerTopicCount;
+	int*** topicPerItemUserCount;
+	int** ItemCount;
+	int** UserCount;
+	int iter = 0;
+
+	// temp distributions
+	double* postItem;
+	double* postUser;
+	double* postTopic;
+
+	enum {USER, ITEM, USER_TYPE, ITEM_TYPE, TOPIC, WORD};
+
+	void normalize(double* param, int n) {
+		double Z = 0.0;
+		for(int i = 0; i < n; i++) 
+			Z += param;
+		for(int i = 0; i < n; i++)
+			param[i] /= Z;
+	}
+
+	int sampleItem(int* example) {
+		// reuse the postItem
+		double* p = postItem;
+		for (int i = 0; i < nItemType; i++) {
+			p[i] = topicPerItemUserParam[example[USER_TYPE]][i][example[TOPIC]]
+				* itemParam[example[ITEM]][i];
+		}
+		normalize(p, nItemType);
+		int newItemType = sampleFromDist(p, nItemType);
+		if (newItemType != example[ITEM_TYPE]) {
+			topicPerItemUserCount[example[USER_TYPE]][newItemType][example[TOPIC]]++;
+			topicPerItemUserCount[example[USER_TYPE]][example[ITEM_TYPE]][example[TOPIC]]--;
+
+			itemParam[example[ITEM]][newItemType]++;			
+			itemParam[example[ITEM]][example[ITEM_TYPE]]--;
+		}
+		return newItemType;
+	}
+
+	int sampleUser(int* example) {
+		double* p = postUser;
+		// double* p = new double[nUserType];
+		for (int i = 0; i < nUserType; i++) {
+			p[i] = topicPerItemUserParam[i][example[ITEM_TYPE]][example[TOPIC]]
+				* userParam[example[USER]][i];
+		}
+		normalize(p, nUserType);
+		int newUserType = sampleFromDist(p, nUserType);
+		if (newUserType != example[USER_TYPE]) {
+			topicPerItemUserCount[newUserType][example[ITEM_TYPE]][example[TOPIC]]++;
+			topicPerItemUserCount[example[USER_TYPE]][example[ITEM_TYPE]][example[TOPIC]]--;
+
+			userParam[example[ITEM]][newUserType]++;
+			userParam[example[USER]][example[USER_TYPE]]--;
+		}
+		return newUserType;
+	}
+
+	int sampleTopic(int* example) {
+		double* p = postTopic;
+		// double* p = new double[nTopics];
+		for (int i = 0; i < nTopics; i++) {
+			p[i] = topicPerItemUserParam[example[USER_TYPE]][example[ITEM_TYPE]][i]
+				* wordPerTopicParam[i][example[WORD]];
+		}
+		normalize(p, nTopics);
+		int newTopic = sampleFromDist(p, nTopics);
+		if (newTopic != example[TOPIC]) {
+			topicPerItemUserCount[example[USER_TYPE]][example[ITEM_TYPE]][newTopic]++;
+			topicPerItemUserCount[example[USER_TYPE]][example[ITEM_TYPE]][example[TOPIC]]--;
+
+			wordPerTopicCount[newTopic][example[WORD]]++;
+			wordPerTopicCount[example[TOPIC]][example[WORD]]--;
+		}
+		return newTopic;
+	}
+
+	void sampleAndUpdate() {
+		iter++;
+		for(int n = 0; n < nSamples; n++) {
+			sampleItem(examples[n]);
+			sampleUser(examples[n]);
+			sampleTopic(examples[n]);
+		}
+		update();
+	}
+
+	void update() {
+		for(int i = 0; i < nItem; i++) 
+			updateParameter(itemParam, ItemCount, nItemType);
+		
+		for(int i = 0; i < nUser; i++) 
+			updateParameter(userParam, UserCount, nUserType);
+
+		for (int u = 0; u < nUserType; u++)
+			for (int i = 0; i < nItemType; i++)
+				updateParameter(topicPerItemUserParam, topicPerItemUserCount, nTopics);
+	}
+
+	void updateParameter(double* param, int* count, int n) {
+		double Z = 0.0;
+		for (int i = 0; i < n; i++) {
+			param[i] = count[i];
+			Z += count[i];
+		}
+		for (int i = 0; i < n; i++) 
+			param[i] /= Z;
+	}
+
+	void randomDist(double* p, int n) {
+		for (int i = 0; i < n; i++) {
+			p[i] = rand() * 1.0 / (1.0 + RAND_MAX);
+		}
+		normalize(p, n);
+	}
+
+	int sampleUniform(int n) {
+		int x = random() * 1.0 / (1.0 + RAND_MAX);
+		int i = 0;
+		while(i < n-1) {
+			x -= 1.0/n;
+			if (x < 0) break;
+			i++;
+		}
+		return i;
+	}
+
+	int sampleFromDist(double* p, int n){
+        double x = rand() * 1.0 / (1.0 + RAND_MAX);
+        int i = 0;
+        while (i < n-1)
+        {
+          x -= p[i];
+          if (x < 0)
+            break;
+          i++;
+        }
+        return i;
+	}
+
+
+	Gibbs(std::string filename, int states[], const int n) {
+		nSamples = n;
+		nUser = states[0]; nItem = states[1];
+		nUserType = states[2]; nItemType = states[3];
+		nTopics = states[4]; nWords = states[5];
+		iter = 0;
+
+		UserCount = new int*[nUser];
+		userParam = new double*[nUser];
+		for (int i = 0; i < nUser; i++) {
+			UserCount[i] = new int[nUserType];
+			userParam[i] = new double[nUserType];
+
+		}
+		ItemCount = new int*[nItem];
+		itemParam = new double*[nItem];
+		for (int i = 0; i < nItem; i++) {
+			ItemCount[i] = new int[nItemType];
+			itemParam[i] = new double[nItemType];
+		}
+
+		topicPerItemUserCount = new int**[nUserType];
+		topicPerItemUserParam = new double**[nUserType];
+		for (int u = 0; u < nUserType; u++) {
+			topicPerItemUserCount[u] = new int*[nItemType];
+			topicPerItemUserParam[u] = new double*[nItemType];
+			for (int i = 0; i < nItemType; i++) {
+				topicPerItemUserCount[u][i] = new int[nTopics];
+				topicPerItemUserParam[u][i] = new double[nTopics];
+			}
+		}
+		
+
+		// initialize posteriors
+		postItem = new double[nItemType];
+		postUser = new double[nUserType];
+		postTopic = new double[nTopics];
+
+		wordPerTopicCount = new int*[nTopics];
+		for (int t = 0; t < nTopics; t++)
+			wordPerTopicCount[t] = new int[nWords];
+
+
+		// read in the dataset
+		igzstream in;
+                in.open(filename);
+                std::string line;
+    	
+                int count = 0;
+                examples = new double*[nSamples];
+                for (int i = 0; i < nSamples; i++)
+                        examples[i] = new double[nVar];
+
+                while (std::getline(in, line)) {
+                        std::stringstream ss(line);
+                        ss >> examples[count][0] >> examples[count][1] >>
+                                examples[count][2] >> examples[count][3] >>
+                                examples[count][4] >> examples[count][5];
+                }
+
+                // filling missing values by random sampling
+                for (int i = 0; i < nSamples; i++) {
+                        examples[i][ITEM_TYPE] = sampleUniform(nItemType);
+                        examples[i][USER_TYPE] = sampleUniform(nUserType);
+                        examples[i][TOPIC] = sampleUniform(nTopics);
+                }
+
+                // erasing counts
+                for (int i = 0; i < nUser; i++) 
+                        for (int j = 0; j < nUserType; j++) 
+                                UserCount[i][j] = 0;
+                for (int i = 0; i < nItem; i++) 
+                        for (int j = 0; j < nItemType; j++)
+                                ItemCount[i][j] = 0;
+                for (int i = 0; i < nTopics; i++) 
+                        for (int j = 0; j < nWords; j++) 
+                                wordPerTopicCount = 0;
+                for (int i = 0; i < nUserType; i++)
+                        for (int j = 0; j < nItemType; j++)
+                                for (int k = 0; k < nTopics; k++)
+                                        topicPerItemUserCount[i][j][k] = 0;
+
+                // collect counting statistics
+                for (int i = 0; i < nSamples; i++) {
+                        UserCount[examples[i][USER]][examples[i][USER_TYPE]]++;
+                        ItemCount[examples[i][ITEM]][examples[i][ITEM_TYPE]]++;
+                        wordPerTopicCount[examples[i][TOPIC]][examples[i][WORD]]++;
+                        topicPerItemUserCount[examples[i][USER_TYPE]][examples[i][ITEM_TYPE]][examples[i][TOPIC]]++;
+                }
+
+                // update parameters
+                update();
+
+                }
+
+                void gibbsSampling(int** wt, int*** tiu, int** item, int** user) {
+                        while(iter < 2000) {
+                                sampleAndUpdate();
+                                fprintf("finish iteration %d\n", iter);
+                        }		
+                }
+
+};
+
+int main() {
+	Gibbs b = new Gibbs()
+}
+
+
+
