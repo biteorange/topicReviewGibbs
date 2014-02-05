@@ -6,7 +6,17 @@
 #include <iostream>
 #include <fstream>
 #include "sstream"
+#include "sys/time.h"
 #include <cmath>
+
+
+// get real computer time
+double clock_()
+{
+  timeval tim;
+  gettimeofday(&tim, NULL);
+  return tim.tv_sec + (tim.tv_usec / 1000000.0);
+}
 
 class Gibbs {
 	int** examples;
@@ -324,8 +334,33 @@ class Gibbs {
                 	convert << iter;
                 	writeResults(convert.str());
                 }
-                printf("finish iteration %d, delta %f\n", iter, delta);
+                double ll = computeLogLikelihood();
+                printf("finish iteration %d, delta %f, ll %f\n", iter, delta, ll);
             }		
+        }
+
+        double computeLogLikelihood() {
+        	double ll = 0.0;
+
+        	double t1,t2;
+        	t1 = clock_();
+        	#pragma omp parallel for reduction(+:ll)
+        	for (int n = 0; n < nSamples; n++) {
+        		double ll_example = 0.0;
+        		int* example = examples[n];
+        		for (int u = 0; u < nUserType; u++) {
+        			for (int i = 0; i < nItemType; i++) {
+        				for (int t = 0; t < nTopics; t++) {
+        					ll_example += pTopicToWord[t][example[WORD]] * pUserItemToTopic[u][i][t]
+        					* pUser[example[USER]][u] * pItem[example[ITEM]][i];
+        				}
+        			}
+        		}
+        		ll += std::log(ll_example);
+        	}
+        	t2 = clock_();
+        	printf("computing likelihood takes %f\n", t2-t1);
+        	return ll;
         }
 
         void writeResults(std::string prefix) {
