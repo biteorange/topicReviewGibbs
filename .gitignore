@@ -7,6 +7,11 @@ uit_*
 # compiled stuff
 *.out
 
+# data dir
+data/*
+arts*
+food*
+
 # emacs temporary
 *~
 
