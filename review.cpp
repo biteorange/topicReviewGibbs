@@ -552,9 +552,9 @@ class Gibbs {
             while(iter < MAX_ITER) {
             	delta = 0;
             	t1 = clock_();
- //           	sampleFullBlockAndUpdate();
-//           	sampleBlockAndUpdate();
-            	sampleAndUpdate();
+           	sampleFullBlockAndUpdate();
+		//           	sampleBlockAndUpdate();
+//            	sampleAndUpdate();
                 t2 = clock_();
                 if (iter % 500 == 0) {
                 	std::ostringstream convert;   // stream used for the conversion
