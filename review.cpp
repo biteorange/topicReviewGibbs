@@ -588,7 +588,8 @@ class Gibbs {
         				}
         			}
         		}
-        		ll += std::log(ll_example);
+        		if (ll_example < 1e-100) ll += -100; // naively avoid NaN
+        		else ll += std::log(ll_example);
         	}
         	t2 = clock_();
         	printf("computing likelihood takes %f\n", t2-t1);
