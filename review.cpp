@@ -422,7 +422,7 @@ class Gibbs {
 
 
 	public: Gibbs(std::string data, int states[], const int n) : 
-	alpha_u(0.1), alpha_i(0.1), alpha_uit(0.1), alpha_tw(0.01) {
+	alpha_u(1), alpha_i(1), alpha_uit(1), alpha_tw(1) {
 		nSamples = n;
 		nVar = 6;
 		nUser = states[0]; nItem = states[1];
