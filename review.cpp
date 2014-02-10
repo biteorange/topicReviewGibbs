@@ -217,12 +217,11 @@ class Gibbs {
 			cTopic[topic]++;
 
 			// update item and topic
-			prev_topic = topic;
-			cUserItemToTopic[user][prev_item][prev_topic]--;
+			cUserItemToTopic[user][prev_item][topic]--;
 			cUserItem[user][prev_item]--;
 			cItem[example[ITEM]][prev_item]--;
-			cTopicToWord[prev_topic][example[WORD]]--;
-			cTopic[prev_topic]--;
+			cTopicToWord[topic][example[WORD]]--;
+			cTopic[topic]--;
 
 			int itemAndTopic = sampleItemAndTopic(example);
 			item = itemAndTopic / nTopics;
@@ -237,12 +236,11 @@ class Gibbs {
 			cTopic[topic]++;
 
 			// update user and item
-			prev_item = item; prev_user = user;
 
-			cUserItem[prev_user][prev_item]--;
-			cUserItemToTopic[prev_user][prev_item][topic]--;
-			cUser[example[USER]][prev_user]--;
-			cItem[example[ITEM]][prev_item]--;
+			cUserItem[user][item]--;
+			cUserItemToTopic[user][item][topic]--;
+			cUser[example[USER]][user]--;
+			cItem[example[ITEM]][item]--;
 			int userAndItem = sampleUserAndItem(example);
 			item = userAndItem % nItemType;
 			user = userAndItem / nItemType;
