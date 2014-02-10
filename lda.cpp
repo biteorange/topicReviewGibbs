@@ -222,7 +222,7 @@ class Gibbs {
         }
         myfile.close();
 
-        printf("finish reading files\n");
+        printf("finish reading files %s with %d files\n", filename.c_str(), count);
 
         // filling missing values by random sampling
         for (int i = 0; i < nSamples; i++) {
@@ -382,8 +382,14 @@ int main(int argc, char** argv) {
 		b.train();
 	}
 	else if (dataset == "foods") {
-		int states[] = {256058, 74257, 10, 10, 20, 5000};
+		int states[] = {256058, 20, 5000};
 		int n = 21006617;
+		Gibbs b = Gibbs(dataset, states, n);
+		b.train();
+	}
+	else if (dataset == "small") {
+		int states[] = {2000, 10, 5000};
+		int n = 61503;
 		Gibbs b = Gibbs(dataset, states, n);
 		b.train();
 	}

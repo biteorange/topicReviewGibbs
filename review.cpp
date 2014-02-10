@@ -9,6 +9,7 @@
 #include "sys/time.h"
 #include <cmath>
 
+#define MAX_ITER 2000
 
 // get real computer time
 double clock_()
@@ -55,6 +56,7 @@ class Gibbs {
 	double* postItem;
 	double* postUser;
 	double* postTopic;
+	double* lls;
 
 	std::string dataset;
 
@@ -124,6 +126,179 @@ class Gibbs {
 		return newTopic;
 	}
 
+	int sampleUserAndItem(int* example) {
+		double* p = new double[nUserType*nItemType];
+		double Z = 0.0;
+		for (int u = 0; u < nUserType; u++) {
+			for (int i = 0; i < nItemType; i++) {
+				p[u*nItemType+i] = (cUserItemToTopic[u][i][example[TOPIC]] + alpha_uit) / 
+				(cUserItem[u][i] + alpha_uit * nTopics)
+				* (cUser[example[USER]][u] + alpha_u) * (cItem[example[ITEM]][i] + alpha_i);
+				Z += p[u*nItemType+i];
+			}
+		}
+		for (int i = 0; i < nUserType*nItemType; i++) 
+			p[i] /= Z;
+		int newUserItem = sampleFromDist(p, nUserType*nItemType);
+		delete p;
+		return newUserItem;
+	}
+	int sampleItemAndTopic(int* example) {
+		double* p = new double[nItemType*nTopics];
+		double Z = 0.0;
+		for (int i = 0; i < nItemType; i++) {
+			for (int t = 0; t < nTopics; t++) {
+				p[i*nTopics+t] = (cUserItemToTopic[example[USER_TYPE]][i][t] + alpha_uit) /
+				(cUserItem[example[USER_TYPE]][i] + alpha_uit * nTopics)
+				* (cItem[example[ITEM]][i] + alpha_i) 
+				* (cTopicToWord[t][example[WORD]] + alpha_tw) / (cTopic[t] + alpha_tw * nWords);
+
+				Z += p[i*nTopics+t];
+			}
+		}
+		for (int i = 0; i < nItemType*nTopics; i++) {
+			p[i] /= Z;
+		}
+		int newItemTopic = sampleFromDist(p, nItemType*nTopics);
+		delete p;
+		return newItemTopic;
+	}
+
+	int sampleUserAndTopic(int* example) {
+		double* p = new double[nUserType*nTopics];
+		double Z = 0.0;
+		for (int u = 0; u < nUserType; u++) {
+			for (int t = 0; t < nTopics; t++) {
+				p[u*nTopics+t] = (cUserItemToTopic[u][example[ITEM_TYPE]][t] + alpha_uit) /
+				(cUserItem[u][example[ITEM_TYPE]] + alpha_uit * nTopics)
+				* (cUser[example[USER]][u] + alpha_u) 
+				* (cTopicToWord[t][example[WORD]] + alpha_tw) / (cTopic[t] + alpha_tw * nWords);
+
+				Z += p[u*nTopics+t];
+			}
+		}
+		for (int i = 0; i < nUserType*nTopics; i++) {
+			p[i] /= Z;
+		}
+		int newUserTopic = sampleFromDist(p, nUserType*nTopics);
+		delete p;
+		return newUserTopic;
+	}
+	void sampleFullBlockAndUpdate() {
+		iter++;
+
+		#pragma omp parallel for 
+		for(int i = 0; i < nSamples; i++) {
+			int item, user, topic;
+			int* example = examples[i];
+
+			int prev_item = example[ITEM_TYPE];
+			int prev_user = example[USER_TYPE];
+			int prev_topic = example[TOPIC];
+
+			// update user and topic
+			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
+			cUserItem[prev_user][prev_item]--;
+			cUser[example[USER]][prev_user]--;
+			cTopicToWord[prev_topic][example[WORD]]--;
+			cTopic[prev_topic]--;
+
+			int userAndTopic = sampleUserAndTopic(example);
+			user = userAndTopic / nTopics;
+			topic = userAndTopic % nTopics;
+
+			// will be overwritten
+			// example[TOPIC] = topic;
+			// example[USER_TYPE] = user;
+
+			cUserItemToTopic[user][prev_item][topic]++;
+			cUserItem[user][prev_item]++;
+			cUser[example[USER]][user]++;
+			cTopicToWord[topic][example[WORD]]++;
+			cTopic[topic]++;
+
+			// update item and topic
+			prev_topic = topic;
+			cUserItemToTopic[user][prev_item][prev_topic]--;
+			cUserItem[user][prev_item]--;
+			cItem[example[ITEM]][prev_item]--;
+			cTopicToWord[prev_topic][example[WORD]]--;
+			cTopic[prev_topic]--;
+
+			int itemAndTopic = sampleItemAndTopic(example);
+			item = itemAndTopic / nTopics;
+			topic = itemAndTopic % nTopics;
+			example[TOPIC] = topic;
+//			example[ITEM_TYPE] = item; // will be overwritten
+
+			cUserItemToTopic[user][item][topic]++;
+			cUserItem[user][item]++;
+			cItem[example[ITEM]][item]++;
+			cTopicToWord[topic][example[WORD]]++;
+			cTopic[topic]++;
+
+			// update user and item
+			prev_item = item; prev_user = user;
+
+			cUserItem[prev_user][prev_item]--;
+			cUserItemToTopic[prev_user][prev_item][topic]--;
+			cUser[example[USER]][prev_user]--;
+			cItem[example[ITEM]][prev_item]--;
+			int userAndItem = sampleUserAndItem(example);
+			item = userAndItem % nItemType;
+			user = userAndItem / nItemType;
+			example[USER_TYPE] = user;
+			example[ITEM_TYPE] = item;
+			cUserItem[user][item]++;
+			cUserItemToTopic[user][item][topic]++;
+			cUser[example[USER]][user]++;
+			cItem[example[ITEM]][item]++;
+		}
+		update();
+
+	}
+
+	void sampleBlockAndUpdate() {
+		iter++;
+
+		#pragma omp parallel for
+		for(int i = 0; i < nSamples; i++) {
+			int item, user, topic;
+			int* example = examples[i];
+
+			int prev_item = example[ITEM_TYPE];
+			int prev_user = example[USER_TYPE];
+			int prev_topic = example[TOPIC];
+
+			cTopic[prev_topic]--;
+			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
+			cTopicToWord[prev_topic][example[WORD]]--;
+			topic = sampleTopic(example);
+			example[TOPIC] = topic;
+			cUserItemToTopic[prev_user][prev_item][topic]++;
+			cTopicToWord[topic][example[WORD]]++;
+			cTopic[topic]++;
+			// printf("finish sampling topic %d -> %d\n", prev_topic, topic);
+
+			cUserItem[prev_user][prev_item]--;
+			cUserItemToTopic[prev_user][prev_item][topic]--;
+			cUser[example[USER]][prev_user]--;
+			cItem[example[ITEM]][prev_item]--;
+			int userAndItem = sampleUserAndItem(example);
+			item = userAndItem % nItemType;
+			user = userAndItem / nItemType;
+			example[USER_TYPE] = user;
+			example[ITEM_TYPE] = item;
+			cUserItem[user][item]++;
+			cUserItemToTopic[user][item][topic]++;
+			cUser[example[USER]][user]++;
+			cItem[example[ITEM]][item]++;
+			// printf("finish sampling item %d -> %d\n", prev_item, item);
+
+		}
+		update();
+	}
+
 	void sampleAndUpdate() {
 		iter++;
 
@@ -136,35 +311,35 @@ class Gibbs {
 			int prev_user = example[USER_TYPE];
 			int prev_topic = example[TOPIC];
 
+			cTopic[prev_topic]--;
+			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
+			cTopicToWord[prev_topic][example[WORD]]--;
+			topic = sampleTopic(example);
+			example[TOPIC] = topic;
+			cUserItemToTopic[prev_user][prev_item][topic]++;
+			cTopicToWord[topic][example[WORD]]++;
+			cTopic[topic]++;
+			// printf("finish sampling topic %d -> %d\n", prev_topic, topic);
+
 			cUser[example[USER]][prev_user]--;
 			cUserItem[prev_user][prev_item]--;
-			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
+			cUserItemToTopic[prev_user][prev_item][topic]--;
 			user = sampleUser(example);
 			example[USER_TYPE] = user;
 			cUser[example[USER]][user]++;
 			cUserItem[user][prev_item]++;
-			cUserItemToTopic[user][prev_item][prev_topic]++;
+			cUserItemToTopic[user][prev_item][topic]++;
 			// printf("finish sampling user %d -> %d\n", prev_user, user);
 
 			cItem[example[ITEM]][prev_item]--;
 			cUserItem[user][prev_item]--;
-			cUserItemToTopic[user][prev_item][prev_topic]--;
+			cUserItemToTopic[user][prev_item][topic]--;
 			item = sampleItem(example);
 			example[ITEM_TYPE] = item;
 			cItem[example[ITEM]][item]++;
 			cUserItem[user][item]++;
-			cUserItemToTopic[user][item][prev_topic]++;
-			// printf("finish sampling item %d -> %d\n", prev_item, item);
-
-			cTopic[prev_topic]--;
-			cUserItemToTopic[user][item][prev_topic]--;
-			cTopicToWord[prev_topic][example[WORD]]--;
-			topic = sampleTopic(example);
-			example[TOPIC] = topic;
 			cUserItemToTopic[user][item][topic]++;
-			cTopicToWord[topic][example[WORD]]++;
-			cTopic[topic]++;
-			// printf("finish sampling topic %d -> %d\n", prev_topic, topic);
+			// printf("finish sampling item %d -> %d\n", prev_item, item);
 
 		}
 		update();
@@ -192,9 +367,9 @@ class Gibbs {
 
 	double delta;
 	void updateParameter(double* param, int* count, int n, double alpha) {
-		int Z = 0;
+		double Z = 0;
 		for (int i = 0; i < n; i++) {
-			Z += (count[i] + alpha);
+			Z += (alpha + count[i]);
 		}
 		double temp;
 		for (int i = 0; i < n; i++) {
@@ -205,7 +380,7 @@ class Gibbs {
 				// printf("change %3f\n", delta);
 			}
 			if (std::abs(temp - param[i]) > 2) {
-				printf("%f %f\n", temp, param[i]);
+				printf("%f %f %f\n", temp, param[i], Z);
 				exit(0);
 			}
 			param[i] = temp;
@@ -263,6 +438,7 @@ class Gibbs {
 		printf("nUserType: %d, nItemType: %d, nTopics: %d\n", nUserType, nItemType, nTopics);
 		printf("=================\n");
 
+		lls = new double[MAX_ITER+1];
 		cUser = new int*[nUser];
 		pUser = new double*[nUser];
 		#pragma omp parallel for
@@ -373,10 +549,12 @@ class Gibbs {
     	void train() {
     		double ll = 0.0;
     		double t1, t2;
-            while(iter < 2000) {
+            while(iter < MAX_ITER) {
             	delta = 0;
             	t1 = clock_();
-                sampleAndUpdate();
+ //           	sampleFullBlockAndUpdate();
+//           	sampleBlockAndUpdate();
+            	sampleAndUpdate();
                 t2 = clock_();
                 if (iter % 500 == 0) {
                 	std::ostringstream convert;   // stream used for the conversion
@@ -389,6 +567,7 @@ class Gibbs {
                 }
                 else
                 	printf("iter %d, delta %f, ll %f, time %f\n", iter, delta, ll, t2-t1);
+                lls[iter] = ll;
             }		
         }
 
@@ -463,6 +642,8 @@ class Gibbs {
         }
 
         ~Gibbs() {
+        	delete [] lls;
+
         	for (int i = 0; i < nSamples; i++) 
         		delete [] examples[i];
         	delete [] examples;
@@ -527,6 +708,12 @@ int main(int argc, char** argv) {
 	else if (dataset == "foods") {
 		int states[] = {256058, 74257, 10, 10, 20, 5000};
 		int n = 21006617;
+		Gibbs b = Gibbs(dataset, states, n);
+		b.train();
+	}
+	else if (dataset == "small") {
+		int states[] = {1859, 354, 10, 10, 10, 5000};
+		int n = 61503;
 		Gibbs b = Gibbs(dataset, states, n);
 		b.train();
 	}
