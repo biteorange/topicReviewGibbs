@@ -207,9 +207,8 @@ class Gibbs {
 			user = userAndTopic / nTopics;
 			topic = userAndTopic % nTopics;
 
-			// will be overwritten
-			// example[TOPIC] = topic;
-			// example[USER_TYPE] = user;
+			example[TOPIC] = topic;
+			example[USER_TYPE] = user;
 
 			cUserItemToTopic[user][prev_item][topic]++;
 			cUserItem[user][prev_item]++;
@@ -229,7 +228,7 @@ class Gibbs {
 			item = itemAndTopic / nTopics;
 			topic = itemAndTopic % nTopics;
 			example[TOPIC] = topic;
-//			example[ITEM_TYPE] = item; // will be overwritten
+			example[ITEM_TYPE] = item; // will be overwritten
 
 			cUserItemToTopic[user][item][topic]++;
 			cUserItem[user][item]++;
@@ -373,7 +372,7 @@ class Gibbs {
 		}
 		double temp;
 		for (int i = 0; i < n; i++) {
-		  temp = (alpha + count[i]) / Z;
+			temp = (alpha + count[i]) / Z;
 
 			if (std::abs(temp - param[i]) > delta) {
 				delta = std::abs(temp-param[i]);
