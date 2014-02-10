@@ -236,7 +236,7 @@ class Gibbs {
 			cTopic[topic]++;
 
 			// update user and item
-
+			/*
 			cUserItem[user][item]--;
 			cUserItemToTopic[user][item][topic]--;
 			cUser[example[USER]][user]--;
@@ -250,6 +250,7 @@ class Gibbs {
 			cUserItemToTopic[user][item][topic]++;
 			cUser[example[USER]][user]++;
 			cItem[example[ITEM]][item]++;
+			*/
 		}
 		update();
 
