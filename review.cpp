@@ -47,10 +47,10 @@ class Gibbs {
 	int iter;
 
 	// Dirichlet prior
-	const double alpha_uit;
-	const double alpha_u;
-	const double alpha_i;
-	const double alpha_tw;
+	double alpha_uit;
+	double alpha_u;
+	double alpha_i;
+	double alpha_tw;
 
 	// temp distributions
 	double* postItem;
@@ -197,12 +197,14 @@ class Gibbs {
 			int prev_topic = example[TOPIC];
 
 			// update user and topic
-			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
-			cUserItem[prev_user][prev_item]--;
-			cUser[example[USER]][prev_user]--;
-			cTopicToWord[prev_topic][example[WORD]]--;
-			cTopic[prev_topic]--;
-
+			#pragma omp critical 
+			{
+				cUserItemToTopic[prev_user][prev_item][prev_topic]--;
+				cUserItem[prev_user][prev_item]--;
+				cUser[example[USER]][prev_user]--;
+				cTopicToWord[prev_topic][example[WORD]]--;
+				cTopic[prev_topic]--;
+			}
 			int userAndTopic = sampleUserAndTopic(example);
 			user = userAndTopic / nTopics;
 			topic = userAndTopic % nTopics;
@@ -210,91 +212,59 @@ class Gibbs {
 			example[TOPIC] = topic;
 			example[USER_TYPE] = user;
 
-			cUserItemToTopic[user][prev_item][topic]++;
-			cUserItem[user][prev_item]++;
-			cUser[example[USER]][user]++;
-			cTopicToWord[topic][example[WORD]]++;
-			cTopic[topic]++;
+			#pragma omp critical
+			{
+				// cUserItemToTopic[user][prev_item][topic]++;
+				// cUserItem[user][prev_item]++;
+				cUser[example[USER]][user]++;
+				// cTopicToWord[topic][example[WORD]]++;
+				// cTopic[topic]++;
 
 			// update item and topic
-			cUserItemToTopic[user][prev_item][topic]--;
-			cUserItem[user][prev_item]--;
-			cItem[example[ITEM]][prev_item]--;
-			cTopicToWord[topic][example[WORD]]--;
-			cTopic[topic]--;
-
+				// cUserItemToTopic[user][prev_item][topic]--;
+				// cUserItem[user][prev_item]--;
+				cItem[example[ITEM]][prev_item]--;
+				// cTopicToWord[topic][example[WORD]]--;
+				// cTopic[topic]--;
+			}
 			int itemAndTopic = sampleItemAndTopic(example);
 			item = itemAndTopic / nTopics;
 			topic = itemAndTopic % nTopics;
 			example[TOPIC] = topic;
 			example[ITEM_TYPE] = item; // will be overwritten
 
-			cUserItemToTopic[user][item][topic]++;
-			cUserItem[user][item]++;
-			cItem[example[ITEM]][item]++;
-			cTopicToWord[topic][example[WORD]]++;
-			cTopic[topic]++;
+			#pragma omp critical
+			{
+				// cUserItemToTopic[user][item][topic]++;
+				// cUserItem[user][item]++;
+				// cItem[example[ITEM]][item]++;
+				cTopicToWord[topic][example[WORD]]++;
+				cTopic[topic]++;
 
 			// update user and item
-			/*
-			cUserItem[user][item]--;
-			cUserItemToTopic[user][item][topic]--;
-			cUser[example[USER]][user]--;
-			cItem[example[ITEM]][item]--;
+			
+				// cUserItem[user][item]--;
+				// cUserItemToTopic[user][item][topic]--;
+				cUser[example[USER]][user]--;
+				// cItem[example[ITEM]][item]--;
+			}
 			int userAndItem = sampleUserAndItem(example);
 			item = userAndItem % nItemType;
 			user = userAndItem / nItemType;
 			example[USER_TYPE] = user;
 			example[ITEM_TYPE] = item;
-			cUserItem[user][item]++;
-			cUserItemToTopic[user][item][topic]++;
-			cUser[example[USER]][user]++;
-			cItem[example[ITEM]][item]++;
-			*/
+
+			#pragma omp critical
+			{
+				cUserItem[user][item]++;
+				cUserItemToTopic[user][item][topic]++;
+				cUser[example[USER]][user]++;
+				cItem[example[ITEM]][item]++;
+			}
+			
 		}
 		update();
 
-	}
-
-	void sampleBlockAndUpdate() {
-		iter++;
-
-		#pragma omp parallel for
-		for(int i = 0; i < nSamples; i++) {
-			int item, user, topic;
-			int* example = examples[i];
-
-			int prev_item = example[ITEM_TYPE];
-			int prev_user = example[USER_TYPE];
-			int prev_topic = example[TOPIC];
-
-			cTopic[prev_topic]--;
-			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
-			cTopicToWord[prev_topic][example[WORD]]--;
-			topic = sampleTopic(example);
-			example[TOPIC] = topic;
-			cUserItemToTopic[prev_user][prev_item][topic]++;
-			cTopicToWord[topic][example[WORD]]++;
-			cTopic[topic]++;
-			// printf("finish sampling topic %d -> %d\n", prev_topic, topic);
-
-			cUserItem[prev_user][prev_item]--;
-			cUserItemToTopic[prev_user][prev_item][topic]--;
-			cUser[example[USER]][prev_user]--;
-			cItem[example[ITEM]][prev_item]--;
-			int userAndItem = sampleUserAndItem(example);
-			item = userAndItem % nItemType;
-			user = userAndItem / nItemType;
-			example[USER_TYPE] = user;
-			example[ITEM_TYPE] = item;
-			cUserItem[user][item]++;
-			cUserItemToTopic[user][item][topic]++;
-			cUser[example[USER]][user]++;
-			cItem[example[ITEM]][item]++;
-			// printf("finish sampling item %d -> %d\n", prev_item, item);
-
-		}
-		update();
 	}
 
 	void sampleAndUpdate() {
@@ -418,9 +388,7 @@ class Gibbs {
         return i;
 	}
 
-
-	public: Gibbs(std::string data, int states[], const int n) : 
-	alpha_u(1), alpha_i(1), alpha_uit(1), alpha_tw(1) {
+	public: Gibbs(std::string data, int states[], const int n) {
 		nSamples = n;
 		nVar = 6;
 		nUser = states[0]; nItem = states[1];
@@ -430,10 +398,19 @@ class Gibbs {
 		dataset = data;
 		std::string filename = dataset+".data";
 
+		// read settings from setting.txt
+        std::ifstream setting_file("settings.txt");
+        std::string line;
+        std::getline(setting_file, line);
+        std::stringstream alpha_line(line);
+        alpha_line >> alpha_u >> alpha_i >> alpha_uit >> alpha_tw;
+
 		printf("initilizing models\n");
 		printf("=================\n");
 		printf("nUser: %d, nItem: %d, nSamples: %d\n", nUser, nItem, nSamples);
 		printf("nUserType: %d, nItemType: %d, nTopics: %d\n", nUserType, nItemType, nTopics);
+		printf("alpha_u: %f, alpha_i: %f, alpha_uit: %f, alpha_tw: %f\n", 
+			alpha_u, alpha_i, alpha_uit, alpha_tw);
 		printf("=================\n");
 
 		lls = new double[MAX_ITER+1];
@@ -478,7 +455,6 @@ class Gibbs {
 
 		// read in the dataset
 		std::ifstream myfile(filename.c_str());
-        std::string line;
 
         int count = 0;
         examples = new int*[nSamples];
@@ -497,6 +473,7 @@ class Gibbs {
 
         printf("finish reading files\n");
 
+        
         // filling missing values by random sampling
         for (int i = 0; i < nSamples; i++) {
                 examples[i][ITEM_TYPE] = sampleUniform(nItemType);
@@ -547,11 +524,13 @@ class Gibbs {
     	void train() {
     		double ll = 0.0;
     		double t1, t2;
+    		std::ofstream ll_file;
+    		ll_file.open((dataset+".ll").c_str());
+
             while(iter < MAX_ITER) {
             	delta = 0;
             	t1 = clock_();
-           	sampleFullBlockAndUpdate();
-		//           	sampleBlockAndUpdate();
+            	sampleFullBlockAndUpdate();
 //            	sampleAndUpdate();
                 t2 = clock_();
                 if (iter % 500 == 0) {
@@ -566,7 +545,9 @@ class Gibbs {
                 else
                 	printf("iter %d, delta %f, ll %f, time %f\n", iter, delta, ll, t2-t1);
                 lls[iter] = ll;
+                ll_file << ll << "\n";
             }		
+            ll_file.close();
         }
 
         double computeLogLikelihood() {
