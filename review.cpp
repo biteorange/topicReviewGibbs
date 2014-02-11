@@ -279,34 +279,47 @@ class Gibbs {
 			int prev_user = example[USER_TYPE];
 			int prev_topic = example[TOPIC];
 
-			cTopic[prev_topic]--;
-			cUserItemToTopic[prev_user][prev_item][prev_topic]--;
-			cTopicToWord[prev_topic][example[WORD]]--;
+			#pragma omp critical
+			{
+				cTopic[prev_topic]--;
+				cUserItemToTopic[prev_user][prev_item][prev_topic]--;
+				cTopicToWord[prev_topic][example[WORD]]--;
+			}
 			topic = sampleTopic(example);
 			example[TOPIC] = topic;
-			cUserItemToTopic[prev_user][prev_item][topic]++;
-			cTopicToWord[topic][example[WORD]]++;
-			cTopic[topic]++;
+			#pragma omp critical
+			{
+				// cUserItemToTopic[prev_user][prev_item][topic]++;
+				cTopicToWord[topic][example[WORD]]++;
+				cTopic[topic]++;
 			// printf("finish sampling topic %d -> %d\n", prev_topic, topic);
 
-			cUser[example[USER]][prev_user]--;
-			cUserItem[prev_user][prev_item]--;
-			cUserItemToTopic[prev_user][prev_item][topic]--;
+				cUser[example[USER]][prev_user]--;
+				cUserItem[prev_user][prev_item]--;
+				// cUserItemToTopic[prev_user][prev_item][topic]--;
+			}
+
 			user = sampleUser(example);
 			example[USER_TYPE] = user;
-			cUser[example[USER]][user]++;
-			cUserItem[user][prev_item]++;
-			cUserItemToTopic[user][prev_item][topic]++;
+			#pragma omp critical
+			{
+				cUser[example[USER]][user]++;
+				// cUserItem[user][prev_item]++;
+				// cUserItemToTopic[user][prev_item][topic]++;
 			// printf("finish sampling user %d -> %d\n", prev_user, user);
 
-			cItem[example[ITEM]][prev_item]--;
-			cUserItem[user][prev_item]--;
-			cUserItemToTopic[user][prev_item][topic]--;
+				cItem[example[ITEM]][prev_item]--;
+				// cUserItem[user][prev_item]--;
+				// cUserItemToTopic[user][prev_item][topic]--;
+			}
 			item = sampleItem(example);
 			example[ITEM_TYPE] = item;
-			cItem[example[ITEM]][item]++;
-			cUserItem[user][item]++;
-			cUserItemToTopic[user][item][topic]++;
+			#pragma omp critical
+			{
+				cItem[example[ITEM]][item]++;
+				cUserItem[user][item]++;
+				cUserItemToTopic[user][item][topic]++;
+			}
 			// printf("finish sampling item %d -> %d\n", prev_item, item);
 
 		}
@@ -530,8 +543,8 @@ class Gibbs {
 			while(iter < MAX_ITER) {
 				delta = 0;
 				t1 = clock_();
-				sampleFullBlockAndUpdate();
-//              sampleAndUpdate();
+//				sampleFullBlockAndUpdate();
+				sampleAndUpdate();
 				t2 = clock_();
 				if (iter % 500 == 0) {
 					std::ostringstream convert;   // stream used for the conversion
