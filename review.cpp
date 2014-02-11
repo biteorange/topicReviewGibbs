@@ -79,7 +79,7 @@ class Gibbs {
 			* (cItem[example[ITEM]][i] + alpha_i);
 
 			// p[i] = pUserItemToTopic[example[USER_TYPE]][i][example[TOPIC]]
-			//	* pItem[example[ITEM]][i];
+			//  * pItem[example[ITEM]][i];
 			Z += p[i];
 		}
 		for (int i = 0; i < nItemType; i++)
@@ -98,7 +98,7 @@ class Gibbs {
 			* (cUser[example[USER]][i] + alpha_u);
 
 			// p[i] = pUserItemToTopic[i][example[ITEM_TYPE]][example[TOPIC]]
-			// 	* pUser[example[USER]][i];
+			//  * pUser[example[USER]][i];
 			Z += p[i];
 		}
 		for (int i = 0; i < nUserType; i++)
@@ -114,8 +114,8 @@ class Gibbs {
 		for (int i = 0; i < nTopics; i++) {
 			p[i] = (cUserItemToTopic[example[USER_TYPE]][example[ITEM_TYPE]][i] + alpha_uit) *
 			(cTopicToWord[i][example[WORD]] + alpha_tw) / (cTopic[i] + alpha_tw * nWords);
-// 			p[i] = pUserItemToTopic[example[USER_TYPE]][example[ITEM_TYPE]][i]
-//				* pTopicToWord[i][example[WORD]];
+//          p[i] = pUserItemToTopic[example[USER_TYPE]][example[ITEM_TYPE]][i]
+//              * pTopicToWord[i][example[WORD]];
 			Z += p[i];
 		}
 		for (int i = 0; i < nTopics; i++)
@@ -188,7 +188,7 @@ class Gibbs {
 		iter++;
 
 		#pragma omp parallel for 
-		for(int i = 0; i < nSamples; i++) {
+	for(int i = 0; i < nSamples; i++) {
 			int item, user, topic;
 			int* example = examples[i];
 
@@ -314,11 +314,11 @@ class Gibbs {
 	}
 
 	void update() {
-		#pragma omp parallel for		
+		#pragma omp parallel for        
 		for(int i = 0; i < nItem; i++) 
 			updateParameter(pItem[i], cItem[i], nItemType, alpha_i);
 		
-		#pragma omp parallel for	
+		#pragma omp parallel for    
 		for(int i = 0; i < nUser; i++) 
 			updateParameter(pUser[i], cUser[i], nUserType, alpha_u);
 		
@@ -375,17 +375,17 @@ class Gibbs {
 	}
 
 	int sampleFromDist(double* p, int n){
-        double x = rand() * 1.0 / (1.0 + RAND_MAX);
-        // printf("%f sampled number\n", x);
-        int i = 0;
-        while (i < n-1)
-        {
-          x -= p[i];
-          if (x < 0)
-            break;
-          i++;
-        }
-        return i;
+		double x = rand() * 1.0 / (1.0 + RAND_MAX);
+		// printf("%f sampled number\n", x);
+		int i = 0;
+		while (i < n-1)
+		{
+		  x -= p[i];
+		  if (x < 0)
+			break;
+		  i++;
+		}
+		return i;
 	}
 
 	public: Gibbs(std::string data, int states[], const int n) {
@@ -399,11 +399,11 @@ class Gibbs {
 		std::string filename = dataset+".data";
 
 		// read settings from setting.txt
-        std::ifstream setting_file("settings.txt");
-        std::string line;
-        std::getline(setting_file, line);
-        std::stringstream alpha_line(line);
-        alpha_line >> alpha_u >> alpha_i >> alpha_uit >> alpha_tw;
+		std::ifstream setting_file("settings.txt");
+		std::string line;
+		std::getline(setting_file, line);
+		std::stringstream alpha_line(line);
+		alpha_line >> alpha_u >> alpha_i >> alpha_uit >> alpha_tw;
 
 		printf("initilizing models\n");
 		printf("=================\n");
@@ -446,7 +446,7 @@ class Gibbs {
 
 		cTopic = new int[nTopics];
 		cTopicToWord = new int*[nTopics];
-		pTopicToWord = new double*[nTopics];		
+		pTopicToWord = new double*[nTopics];        
 		#pragma omp parallel for
 		for (int i = 0; i < nTopics; i++) {
 			cTopicToWord[i] = new int[nWords];
@@ -456,217 +456,217 @@ class Gibbs {
 		// read in the dataset
 		std::ifstream myfile(filename.c_str());
 
-        int count = 0;
-        examples = new int*[nSamples];
-        #pragma omp parallel for
-        for (int i = 0; i < nSamples; i++)
-                examples[i] = new int[nVar];
+		int count = 0;
+		examples = new int*[nSamples];
+		#pragma omp parallel for
+		for (int i = 0; i < nSamples; i++)
+				examples[i] = new int[nVar];
 
-        while (std::getline(myfile, line)) {
-                std::stringstream ss(line);
-                ss >> examples[count][0] >> examples[count][1] >>
-                        examples[count][2] >> examples[count][3] >>
-                        examples[count][4] >> examples[count][5];
-                count++;
-        }
-        myfile.close();
+		while (std::getline(myfile, line)) {
+				std::stringstream ss(line);
+				ss >> examples[count][0] >> examples[count][1] >>
+						examples[count][2] >> examples[count][3] >>
+						examples[count][4] >> examples[count][5];
+				count++;
+		}
+		myfile.close();
 
-        printf("finish reading files\n");
+		printf("finish reading files\n");
 
-        
-        // filling missing values by random sampling
-        for (int i = 0; i < nSamples; i++) {
-                examples[i][ITEM_TYPE] = sampleUniform(nItemType);
-                examples[i][USER_TYPE] = sampleUniform(nUserType);
-                examples[i][TOPIC] = sampleUniform(nTopics);
-        }
-        printf("finish imputing\n");
+		
+		// filling missing values by random sampling
+		for (int i = 0; i < nSamples; i++) {
+				examples[i][ITEM_TYPE] = sampleUniform(nItemType);
+				examples[i][USER_TYPE] = sampleUniform(nUserType);
+				examples[i][TOPIC] = sampleUniform(nTopics);
+		}
+		printf("finish imputing\n");
 
-        // erasing counts
+		// erasing counts
 
-        for (int i = 0; i < nUser; i++) 
-                for (int j = 0; j < nUserType; j++) 
-                        cUser[i][j] = 0;
-        for (int i = 0; i < nItem; i++) 
-                for (int j = 0; j < nItemType; j++)
-                        cItem[i][j] = 0;
-        for (int i = 0; i < nTopics; i++) {
-        	cTopic[i] = 0;
-        	for (int j = 0; j < nWords; j++) 
-        		cTopicToWord[i][j] = 0;
-        }
-        	
-        for (int i = 0; i < nUserType; i++) {
-        	for (int j = 0; j < nItemType; j++) {
-        		cUserItem[i][j] = 0;
-        		for (int k = 0; k < nTopics; k++)
-        			cUserItemToTopic[i][j][k] = 0;
-        	}
-        }
-        printf("finish initializing to 0\n");
+		for (int i = 0; i < nUser; i++) 
+				for (int j = 0; j < nUserType; j++) 
+						cUser[i][j] = 0;
+		for (int i = 0; i < nItem; i++) 
+				for (int j = 0; j < nItemType; j++)
+						cItem[i][j] = 0;
+		for (int i = 0; i < nTopics; i++) {
+			cTopic[i] = 0;
+			for (int j = 0; j < nWords; j++) 
+				cTopicToWord[i][j] = 0;
+		}
+			
+		for (int i = 0; i < nUserType; i++) {
+			for (int j = 0; j < nItemType; j++) {
+				cUserItem[i][j] = 0;
+				for (int k = 0; k < nTopics; k++)
+					cUserItemToTopic[i][j][k] = 0;
+			}
+		}
+		printf("finish initializing to 0\n");
 
-        // collect counting statistics
-        for (int i = 0; i < nSamples; i++) {
-        	cUser[examples[i][USER]][examples[i][USER_TYPE]]++;
-        	cItem[examples[i][ITEM]][examples[i][ITEM_TYPE]]++;
-        	cTopicToWord[examples[i][TOPIC]][examples[i][WORD]]++;
-        	cTopic[examples[i][TOPIC]]++;
-        	cUserItemToTopic[examples[i][USER_TYPE]][examples[i][ITEM_TYPE]][examples[i][TOPIC]]++;
-        	cUserItem[examples[i][USER_TYPE]][examples[i][ITEM_TYPE]]++;
-        }
-        printf("finish initializing statistics\n");
+		// collect counting statistics
+		for (int i = 0; i < nSamples; i++) {
+			cUser[examples[i][USER]][examples[i][USER_TYPE]]++;
+			cItem[examples[i][ITEM]][examples[i][ITEM_TYPE]]++;
+			cTopicToWord[examples[i][TOPIC]][examples[i][WORD]]++;
+			cTopic[examples[i][TOPIC]]++;
+			cUserItemToTopic[examples[i][USER_TYPE]][examples[i][ITEM_TYPE]][examples[i][TOPIC]]++;
+			cUserItem[examples[i][USER_TYPE]][examples[i][ITEM_TYPE]]++;
+		}
+		printf("finish initializing statistics\n");
 
-        // update parameters
-        update();
-        printf("finish constructor\n");
-        }
+		// update parameters
+		update();
+		printf("finish constructor\n");
+		}
 
-    	void train() {
-    		double ll = 0.0;
-    		double t1, t2;
-    		std::ofstream ll_file;
-    		ll_file.open((dataset+".ll").c_str());
+		void train() {
+			double ll = 0.0;
+			double t1, t2;
+			std::ofstream ll_file;
+			ll_file.open((dataset+".ll").c_str());
 
-            while(iter < MAX_ITER) {
-            	delta = 0;
-            	t1 = clock_();
-            	sampleFullBlockAndUpdate();
-//            	sampleAndUpdate();
-                t2 = clock_();
-                if (iter % 500 == 0) {
-                	std::ostringstream convert;   // stream used for the conversion
-                	convert << iter;
-                	writeResults(convert.str());
-                }
-                if (iter % 1 == 0 || iter == 1) {
-                	ll = computeLogLikelihood();
-                	printf("iter %d, delta %f, ll %f, time %f\n", iter, delta, ll, t2-t1);
-                }
-                else
-                	printf("iter %d, delta %f, ll %f, time %f\n", iter, delta, ll, t2-t1);
-                lls[iter] = ll;
-                ll_file << ll << "\n";
-            }		
-            ll_file.close();
-        }
+			while(iter < MAX_ITER) {
+				delta = 0;
+				t1 = clock_();
+				sampleFullBlockAndUpdate();
+//              sampleAndUpdate();
+				t2 = clock_();
+				if (iter % 500 == 0) {
+					std::ostringstream convert;   // stream used for the conversion
+					convert << iter;
+					writeResults(convert.str());
+				}
+				if (iter % 1 == 0 || iter == 1) {
+					ll = computeLogLikelihood();
+					printf("iter %d, delta %f, ll %f, time %f\n", iter, delta, ll, t2-t1);
+				}
+				else
+					printf("iter %d, delta %f, ll %f, time %f\n", iter, delta, ll, t2-t1);
+				lls[iter] = ll;
+				ll_file << ll << "\n";
+			}       
+			ll_file.close();
+		}
 
-        double computeLogLikelihood() {
-        	double ll = 0.0;
+		double computeLogLikelihood() {
+			double ll = 0.0;
 
-        	double t1,t2;
-        	t1 = clock_();
-        	#pragma omp parallel for reduction(+:ll)
-        	for (int n = 0; n < nSamples; n++) {
-        		double ll_example = 0.0;
-        		int* example = examples[n];
-        		for (int u = 0; u < nUserType; u++) {
-        			for (int i = 0; i < nItemType; i++) {
-        				for (int t = 0; t < nTopics; t++) {
-        					ll_example += pTopicToWord[t][example[WORD]] * pUserItemToTopic[u][i][t]
-        					* pUser[example[USER]][u] * pItem[example[ITEM]][i];
-        				}
-        			}
-        		}
-        		if (ll_example < 1e-100) ll += -100; // naively avoid NaN
-        		else ll += std::log(ll_example);
-        	}
-        	t2 = clock_();
-        	printf("computing likelihood takes %f\n", t2-t1);
-        	return ll;
-        }
+			double t1,t2;
+			t1 = clock_();
+			#pragma omp parallel for reduction(+:ll)
+			for (int n = 0; n < nSamples; n++) {
+				double ll_example = 0.0;
+				int* example = examples[n];
+				for (int u = 0; u < nUserType; u++) {
+					for (int i = 0; i < nItemType; i++) {
+						for (int t = 0; t < nTopics; t++) {
+							ll_example += pTopicToWord[t][example[WORD]] * pUserItemToTopic[u][i][t]
+							* pUser[example[USER]][u] * pItem[example[ITEM]][i];
+						}
+					}
+				}
+				if (ll_example < 1e-100) ll += -100; // naively avoid NaN
+				else ll += std::log(ll_example);
+			}
+			t2 = clock_();
+			printf("computing likelihood takes %f\n", t2-t1);
+			return ll;
+		}
 
-        void writeResults(std::string prefix) {
-        	std::ofstream fTopicWord;
-        	fTopicWord.open((dataset+"_tw_"+prefix).c_str());
-        	for(int i = 0; i < nTopics; i++) {
-        		for (int w = 0; w < nWords; w++) {
-        			fTopicWord << pTopicToWord[i][w] << " ";
-        		}
-        		fTopicWord << "\n";
-        	}
-        	fTopicWord.close();
+		void writeResults(std::string prefix) {
+			std::ofstream fTopicWord;
+			fTopicWord.open((dataset+"_tw_"+prefix).c_str());
+			for(int i = 0; i < nTopics; i++) {
+				for (int w = 0; w < nWords; w++) {
+					fTopicWord << pTopicToWord[i][w] << " ";
+				}
+				fTopicWord << "\n";
+			}
+			fTopicWord.close();
 
-        	std::ofstream fUser;
-        	fUser.open((dataset+"_u_"+prefix).c_str());
-        	for(int i = 0; i < nUser; i++) {
-        		for (int w = 0; w < nUserType; w++) {
-        			fUser << pUser[i][w] << " ";
-        		}
-        		fUser << "\n";
-        	}
-        	fUser.close();
+			std::ofstream fUser;
+			fUser.open((dataset+"_u_"+prefix).c_str());
+			for(int i = 0; i < nUser; i++) {
+				for (int w = 0; w < nUserType; w++) {
+					fUser << pUser[i][w] << " ";
+				}
+				fUser << "\n";
+			}
+			fUser.close();
 
-        	std::ofstream fItem;
-        	fItem.open((dataset+"_i_"+prefix).c_str());
-        	for(int i = 0; i < nItem; i++) {
-        		for (int w = 0; w < nItemType; w++) {
-        			fItem << pItem[i][w] << " ";
-        		}
-        		fItem << "\n";
-        	}
-        	fItem.close();
+			std::ofstream fItem;
+			fItem.open((dataset+"_i_"+prefix).c_str());
+			for(int i = 0; i < nItem; i++) {
+				for (int w = 0; w < nItemType; w++) {
+					fItem << pItem[i][w] << " ";
+				}
+				fItem << "\n";
+			}
+			fItem.close();
 
-        	std::ofstream fTUserItemTopic;
-        	fTUserItemTopic.open((dataset+"_uit_"+prefix).c_str());
-        	for(int i = 0; i < nUserType; i++) {
-        		for (int j = 0; j < nItemType; j++) {
-        			for (int t = 0; t < nTopics; t++) {
-        				fTUserItemTopic << pUserItemToTopic[i][j][t] << " ";
-        			}
-        			fTUserItemTopic << "\n";
-        		}
-        	}
-        	
-        	fTUserItemTopic.close();
-    
-        }
+			std::ofstream fTUserItemTopic;
+			fTUserItemTopic.open((dataset+"_uit_"+prefix).c_str());
+			for(int i = 0; i < nUserType; i++) {
+				for (int j = 0; j < nItemType; j++) {
+					for (int t = 0; t < nTopics; t++) {
+						fTUserItemTopic << pUserItemToTopic[i][j][t] << " ";
+					}
+					fTUserItemTopic << "\n";
+				}
+			}
+			
+			fTUserItemTopic.close();
+	
+		}
 
-        ~Gibbs() {
-        	delete [] lls;
+		~Gibbs() {
+			delete [] lls;
 
-        	for (int i = 0; i < nSamples; i++) 
-        		delete [] examples[i];
-        	delete [] examples;
+			for (int i = 0; i < nSamples; i++) 
+				delete [] examples[i];
+			delete [] examples;
 
-        	for (int i = 0; i < nUser; i++) {
-        		delete [] cUser[i];
-        		delete [] pUser[i];
-        	}
-        	delete [] cUser;
-        	delete [] pUser;
-        
-        	for (int i = 0; i < nItem; i++) {
-        		delete [] cItem[i];
-        		delete [] pItem[i];
-        	}
-        	delete [] cItem;
-        	delete [] pItem;
+			for (int i = 0; i < nUser; i++) {
+				delete [] cUser[i];
+				delete [] pUser[i];
+			}
+			delete [] cUser;
+			delete [] pUser;
+		
+			for (int i = 0; i < nItem; i++) {
+				delete [] cItem[i];
+				delete [] pItem[i];
+			}
+			delete [] cItem;
+			delete [] pItem;
 
-        	delete [] cTopic;
-        	for (int i = 0; i < nTopics; i++) {
-        		delete [] pTopicToWord[i];
-        		delete [] cTopicToWord[i];
-        	}
-        	delete [] cTopicToWord;
-        	delete [] pTopicToWord;
+			delete [] cTopic;
+			for (int i = 0; i < nTopics; i++) {
+				delete [] pTopicToWord[i];
+				delete [] cTopicToWord[i];
+			}
+			delete [] cTopicToWord;
+			delete [] pTopicToWord;
 
-        	for (int u = 0; u < nUserType; u++) {
-        		for (int i = 0; i < nItemType; i++) {
-        			delete [] pUserItemToTopic[u][i];
-        			delete [] cUserItemToTopic[u][i];
-        		}
-        		delete [] cUserItem[u];
-        		delete [] pUserItemToTopic[u];
-        		delete [] cUserItemToTopic[u];
-        	}
-        	delete [] cUserItem;
-        	delete [] cUserItemToTopic;
-        	delete [] pUserItemToTopic;
+			for (int u = 0; u < nUserType; u++) {
+				for (int i = 0; i < nItemType; i++) {
+					delete [] pUserItemToTopic[u][i];
+					delete [] cUserItemToTopic[u][i];
+				}
+				delete [] cUserItem[u];
+				delete [] pUserItemToTopic[u];
+				delete [] cUserItemToTopic[u];
+			}
+			delete [] cUserItem;
+			delete [] cUserItemToTopic;
+			delete [] pUserItemToTopic;
 
-        	delete [] postTopic;
-        	delete [] postItem;
-        	delete [] postUser;
-        }
+			delete [] postTopic;
+			delete [] postItem;
+			delete [] postUser;
+		}
 
 };
 
@@ -688,6 +688,12 @@ int main(int argc, char** argv) {
 	else if (dataset == "foods") {
 		int states[] = {256058, 74257, 10, 10, 20, 5000};
 		int n = 21006617;
+		Gibbs b = Gibbs(dataset, states, n);
+		b.train();
+	}
+	else if (dataset == "yelp") {
+		int states[] = {45981, 11537, 5, 5, 10, 5000};
+		int n = 13474641;
 		Gibbs b = Gibbs(dataset, states, n);
 		b.train();
 	}
