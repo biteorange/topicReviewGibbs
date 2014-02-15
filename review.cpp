@@ -401,22 +401,36 @@ class Gibbs {
 		return i;
 	}
 
-	public: Gibbs(std::string data, int states[], const int n) {
-		nSamples = n;
+	public: Gibbs(std::string data) {
 		nVar = 6;
-		nUser = states[0]; nItem = states[1];
-		nUserType = states[2]; nItemType = states[3];
-		nTopics = states[4]; nWords = states[5];
 		iter = 0;
 		dataset = data;
 		std::string filename = dataset+".data";
 
+		std::string line;
+		// read in files to get stats
+		std::ifstream inputFile(filename.c_str());
+		nUser = 0; nItem = 0; nWords = 0; nSamples = 0;
+		int foo = 0;
+		while (std::getline(inputFile, line)) {
+			std::stringstream ss(line);
+			nSamples++;
+			ss >> foo; if (foo > nUser) nUser = foo;
+			ss >> foo; if (foo > nItem) nItem = foo;
+			ss >> foo; ss >> foo; ss >> foo;
+			ss >> foo; if (foo > nWords) nWords = foo;
+		}
+		nUser++; nItem++; nWords++;
+		inputFile.close();
+
 		// read settings from setting.txt
 		std::ifstream setting_file("settings.txt");
-		std::string line;
 		std::getline(setting_file, line);
 		std::stringstream alpha_line(line);
 		alpha_line >> alpha_u >> alpha_i >> alpha_uit >> alpha_tw;
+		std::getline(setting_file, line); // get topic settings
+		std::stringstream topic_line(line);
+		topic_line >> nUserType >> nItemType >> nTopics;
 
 		printf("initilizing models\n");
 		printf("=================\n");
@@ -469,12 +483,12 @@ class Gibbs {
 		// read in the dataset
 		std::ifstream myfile(filename.c_str());
 
-		int count = 0;
 		examples = new int*[nSamples];
 		#pragma omp parallel for
 		for (int i = 0; i < nSamples; i++)
 				examples[i] = new int[nVar];
 
+		int count = 0;
 		while (std::getline(myfile, line)) {
 				std::stringstream ss(line);
 				ss >> examples[count][0] >> examples[count][1] >>
@@ -692,6 +706,9 @@ int main(int argc, char** argv) {
 	}
 	
 	std::string dataset = std::string(argv[1]);
+	Gibbs b = Gibbs(dataset);
+	b.train();
+	/*
 	if (dataset == "arts") {
 		int states[] = {24071, 4211, 10, 10, 20, 5000};
 		int n = 1965602;
@@ -720,6 +737,7 @@ int main(int argc, char** argv) {
 		printf("not recognized dataset: %s\n", dataset.c_str());
 		exit(0);
 	}
+	*/
 	return 1;
 }
 
