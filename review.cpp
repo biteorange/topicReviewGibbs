@@ -708,36 +708,7 @@ int main(int argc, char** argv) {
 	std::string dataset = std::string(argv[1]);
 	Gibbs b = Gibbs(dataset);
 	b.train();
-	/*
-	if (dataset == "arts") {
-		int states[] = {24071, 4211, 10, 10, 20, 5000};
-		int n = 1965602;
-		Gibbs b = Gibbs(dataset, states, n);
-		b.train();
-	}
-	else if (dataset == "foods") {
-		int states[] = {256058, 74257, 10, 10, 20, 5000};
-		int n = 21006617;
-		Gibbs b = Gibbs(dataset, states, n);
-		b.train();
-	}
-	else if (dataset == "yelp") {
-		int states[] = {45981, 11537, 5, 5, 10, 5000};
-		int n = 13474641;
-		Gibbs b = Gibbs(dataset, states, n);
-		b.train();
-	}
-	else if (dataset == "small") {
-		int states[] = {1859, 354, 10, 10, 10, 5000};
-		int n = 61503;
-		Gibbs b = Gibbs(dataset, states, n);
-		b.train();
-	}
-	else {
-		printf("not recognized dataset: %s\n", dataset.c_str());
-		exit(0);
-	}
-	*/
+	
 	return 1;
 }
 
